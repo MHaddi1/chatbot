@@ -6,25 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-class SpeechScreen extends StatefulWidget {
+class SpeechScreen extends StatelessWidget {
   const SpeechScreen({Key? key}) : super(key: key);
 
   @override
-  _SpeechScreenState createState() => _SpeechScreenState();
-}
-
-class _SpeechScreenState extends State<SpeechScreen> {
-  final controller = Get.put(SpeechController());
-  final speechToText = SpeechToText();
-
-  @override
-  void initState() {
-    super.initState();
-    controller.isListening.value = false; // Initialize to false
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(SpeechController());
+    final speechToText = SpeechToText();
+
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Obx(
@@ -39,21 +28,34 @@ class _SpeechScreenState extends State<SpeechScreen> {
           child: GestureDetector(
             onTapDown: (detail) async {
               if (!controller.isListening.value) {
-                final available = await speechToText.initialize();
+                final available = await speechToText.initialize(
+                  onStatus: (status) {
+                    print("SpeechToText Status: $status");
+                  },
+                  onError: (error) {
+                    print("SpeechToText Error: $error");
+                  },
+                );
                 if (available) {
                   controller.isListening.value = true;
+                  speechToText.listen(onResult: (result) {
+                    controller.text.value = result.recognizedWords;
+                  });
+                } else {
+                  print("SpeechToText is not available on this device.");
                 }
               }
             },
             onTapUp: (detail) {
               controller.isListening.value = false;
+              speechToText.stop();
             },
             child: CircleAvatar(
-              backgroundColor: bgColor, // Replace with your desired color
+              backgroundColor: bgColor,
               radius: 35.0,
               child: Icon(
                 controller.isListening.value ? Icons.mic : Icons.mic_none,
-                color: Colors.white, // Replace with your desired color
+                color: Colors.white,
               ),
             ),
           ),
@@ -61,20 +63,29 @@ class _SpeechScreenState extends State<SpeechScreen> {
       ),
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: bgColor, // Replace with your desired color
+        backgroundColor: bgColor,
         elevation: 0.0,
-        leading: const Icon(Icons.sort_rounded,
-            color: Colors.white), // Replace with your desired color
+        leading: const Icon(Icons.sort_rounded, color: Colors.white),
         title: Text("Speech to Text",
             style: ourStyle(size: 20, color: whiteColor)),
       ),
-      body: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        margin: const EdgeInsets.only(bottom: 150.0),
-        child: Obx(
-          () => Text(controller.text.value,
-              style: ourStyle(size: 18, color: bgDarkColor)),
+      body: SingleChildScrollView(
+        reverse: true,
+        physics: const BouncingScrollPhysics(),
+        child: Container(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height * 0.7,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          margin: const EdgeInsets.only(bottom: 150.0),
+          child: Obx(
+            () => Text(
+              controller.text.value,
+              style: ourStyle(
+                  size: 18,
+                  color: controller.isListening.value ? bgColor : bgDarkColor),
+            ),
+          ),
         ),
       ),
     );
